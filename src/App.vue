@@ -1,5 +1,9 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
+
+const userAgent = typeof window === 'undefined' ? '' : window.navigator.userAgent
+const isWeChatBrowser = /MicroMessenger/i.test(userAgent)
+const isAlipayBrowser = /AlipayClient/i.test(userAgent)
 
 const methods = [
   {
@@ -8,8 +12,8 @@ const methods = [
     tone: 'blue',
     image: '/pay/zhifubao-qr.jpg',
     note: '蓝色通道，适合嘴上说下次其实现在就付的人。',
-    guide: ['手机直接扫屏幕上的码，或者打开大码后保存。', '微信里会拦支付宝，别硬点跳转。'],
-    wechatGuide: ['点右上角在浏览器打开，再用支付宝扫。', '懒得切浏览器就截图，打开支付宝扫一扫，从相册选这张图。'],
+    guide: ['在支付宝里可以直接扫屏幕码。', '同一台手机就进截图模式，截图后从支付宝扫一扫相册识别。'],
+    wechatGuide: ['微信里不建议走支付宝，会被拦。', '真要用支付宝，点右上角用外部浏览器打开这一页。'],
   },
   {
     id: 'wechat',
@@ -17,8 +21,8 @@ const methods = [
     tone: 'green',
     image: '/pay/weixin-qr-clean.jpg',
     note: '绿色通道，适合把人情世故伪装成扫码的人。',
-    guide: ['用微信扫一扫识别这张码。', '如果当前页识别失败，就截图后从扫一扫相册里选。'],
-    wechatGuide: ['微信网页里点图片会提示暂不支持跳转，别点。', '截图这张码，回微信首页点 +，扫一扫，从相册选截图。'],
+    guide: ['用另一台手机微信扫屏幕码最稳。', '同一台手机就进截图模式，再从微信扫一扫相册识别。'],
+    wechatGuide: ['已自动切到微信通道，别长按图片，微信会拿它去搜一搜。', '点下面的截图模式，截屏后回微信首页点 +，扫一扫，从相册选截图。'],
   },
 ]
 
@@ -37,13 +41,20 @@ const cravings = [
   },
 ]
 
-const selectedId = ref('alipay')
-const isWeChatBrowser = ref(false)
+const selectedId = ref(isWeChatBrowser ? 'wechat' : 'alipay')
+const isCaptureModeOpen = ref(false)
 const selected = computed(() => methods.find((method) => method.id === selectedId.value))
-const activeGuide = computed(() => (isWeChatBrowser.value ? selected.value.wechatGuide : selected.value.guide))
+const activeGuide = computed(() => (isWeChatBrowser ? selected.value.wechatGuide : selected.value.guide))
+const browserHint = computed(() => {
+  if (isWeChatBrowser) {
+    return '检测到微信，已优先给你摆上微信通道。网页里不能直接唤起个人收款码，截图模式更稳。'
+  }
 
-onMounted(() => {
-  isWeChatBrowser.value = /MicroMessenger/i.test(window.navigator.userAgent)
+  if (isAlipayBrowser) {
+    return '检测到支付宝，已优先给你摆上支付宝通道。同机支付建议用截图模式。'
+  }
+
+  return ''
 })
 </script>
 
@@ -175,8 +186,8 @@ onMounted(() => {
           <p class="pay-note">
             网页只展示个人收款码，不会自动确认到账。付款结果以微信或支付宝 App 为准。
           </p>
-          <p v-if="isWeChatBrowser" class="wechat-warning">
-            你现在在微信里，外部支付跳转会被拦。按下面步骤走，别和微信硬刚。
+          <p v-if="browserHint" class="browser-warning">
+            {{ browserHint }}
           </p>
 
           <div class="method-tabs" role="tablist" aria-label="选择付款方式">
@@ -224,8 +235,10 @@ onMounted(() => {
               <li v-for="step in activeGuide" :key="step">{{ step }}</li>
             </ol>
           </div>
-          <p v-if="isWeChatBrowser" class="wechat-action-note">截图或长按保存这张码</p>
-          <a v-else class="image-action" :href="selected.image" target="_blank" rel="noreferrer">
+          <button class="image-action" type="button" @click="isCaptureModeOpen = true">
+            进入截图模式
+          </button>
+          <a v-if="!isWeChatBrowser" class="image-action secondary-image-action" :href="selected.image" target="_blank" rel="noreferrer">
             打开大码
           </a>
         </div>
@@ -236,5 +249,27 @@ onMounted(() => {
       <p>非官方整活页面。没有接入微信或支付宝官方支付 API，也不会保存付款信息。</p>
       <p>浏览器负责展示二维码，付款这口锅交给支付 App。</p>
     </footer>
+
+    <div
+      v-if="isCaptureModeOpen"
+      class="capture-mode"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="capture-title"
+      @click.self="isCaptureModeOpen = false"
+    >
+      <div class="capture-sheet">
+        <button class="capture-close" type="button" aria-label="关闭截图模式" @click="isCaptureModeOpen = false">
+          ×
+        </button>
+        <p class="section-label">截图模式</p>
+        <h2 id="capture-title">{{ selected.label }}同机识别</h2>
+        <p class="capture-copy">别长按，直接系统截图。然后回到 {{ selected.label }} 的扫一扫，从相册选这张截图。</p>
+        <div class="capture-qr">
+          <img :src="selected.image" :alt="`${selected.label}收款二维码截图模式`" />
+        </div>
+        <p class="capture-tip">另一台手机也可以直接扫这个屏幕。</p>
+      </div>
+    </div>
   </main>
 </template>
