@@ -1,0 +1,5 @@
+node_modules/
+dist/
+.pay-original/
+.DS_Store
+*.log
