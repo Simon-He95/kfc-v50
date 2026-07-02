@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 const methods = [
   {
@@ -8,6 +8,8 @@ const methods = [
     tone: 'blue',
     image: '/pay/zhifubao-qr.jpg',
     note: '蓝色通道，适合嘴上说下次其实现在就付的人。',
+    guide: ['手机直接扫屏幕上的码，或者打开大码后保存。', '微信里会拦支付宝，别硬点跳转。'],
+    wechatGuide: ['点右上角在浏览器打开，再用支付宝扫。', '懒得切浏览器就截图，打开支付宝扫一扫，从相册选这张图。'],
   },
   {
     id: 'wechat',
@@ -15,6 +17,8 @@ const methods = [
     tone: 'green',
     image: '/pay/weixin-qr-clean.jpg',
     note: '绿色通道，适合把人情世故伪装成扫码的人。',
+    guide: ['用微信扫一扫识别这张码。', '如果当前页识别失败，就截图后从扫一扫相册里选。'],
+    wechatGuide: ['微信网页里点图片会提示暂不支持跳转，别点。', '截图这张码，回微信首页点 +，扫一扫，从相册选截图。'],
   },
 ]
 
@@ -34,7 +38,13 @@ const cravings = [
 ]
 
 const selectedId = ref('alipay')
+const isWeChatBrowser = ref(false)
 const selected = computed(() => methods.find((method) => method.id === selectedId.value))
+const activeGuide = computed(() => (isWeChatBrowser.value ? selected.value.wechatGuide : selected.value.guide))
+
+onMounted(() => {
+  isWeChatBrowser.value = /MicroMessenger/i.test(window.navigator.userAgent)
+})
 </script>
 
 <template>
@@ -165,6 +175,9 @@ const selected = computed(() => methods.find((method) => method.id === selectedI
           <p class="pay-note">
             网页只展示个人收款码，不会自动确认到账。付款结果以微信或支付宝 App 为准。
           </p>
+          <p v-if="isWeChatBrowser" class="wechat-warning">
+            你现在在微信里，外部支付跳转会被拦。按下面步骤走，别和微信硬刚。
+          </p>
 
           <div class="method-tabs" role="tablist" aria-label="选择付款方式">
             <button
@@ -203,12 +216,16 @@ const selected = computed(() => methods.find((method) => method.id === selectedI
               <span>{{ selected.label }}</span>
               <span>扫码区</span>
             </div>
-            <a :href="selected.image" target="_blank" rel="noreferrer" class="qr-link">
+            <div class="qr-link">
               <img class="qr-image" :src="selected.image" :alt="`${selected.label}收款二维码`" />
-            </a>
+            </div>
             <p>{{ selected.note }}</p>
+            <ol class="pay-steps">
+              <li v-for="step in activeGuide" :key="step">{{ step }}</li>
+            </ol>
           </div>
-          <a class="image-action" :href="selected.image" target="_blank" rel="noreferrer">
+          <p v-if="isWeChatBrowser" class="wechat-action-note">截图或长按保存这张码</p>
+          <a v-else class="image-action" :href="selected.image" target="_blank" rel="noreferrer">
             打开大码
           </a>
         </div>
